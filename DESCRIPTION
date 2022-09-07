@@ -1,5 +1,4 @@
 Package: tfpscanner
-Type: Package
 Title: Transmission fitness polymorphism scanner 
 Version: 0.1.2
 Date: 2022-09-26
@@ -21,14 +20,19 @@ Imports:
   knitr,
   lubridate,
   mgcv,
+  mlesky,
   phangorn (>= 2.9.0),
+  rlang,
+  Rmpi,
   scales,
+  stats,
   stringr, 
-  treedater
+  treedater,
+  utils
 Suggests: 
   doMPI
 Remotes: 
   emvolz-phylodynamics/mlesky
 Encoding: UTF-8
-License: MIT
-RoxygenNote: 7.2.0
+License: MIT + file LICENSE
+RoxygenNote: 7.2.1

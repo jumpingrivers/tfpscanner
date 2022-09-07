@@ -6,29 +6,43 @@
 #' If using parallel computation (ncpu>1), the code should be called via mpirun, e.g.
 #' mpirun -n <ncpu+1> R --slave -f <script>
 #'
-#' @param tre A phylogeny in ape::phylo or treeio::treedata form. If not rooted, must provide an outgroup (see below)
-#' @param amd A data frame containing required metadata for each tip in tree: sequence_name, sample_date, region. Optional metadata includes: sample_time(numeric), lineage, mutations.
+#' @param tre A phylogeny in ape::phylo or treeio::treedata form. If not rooted, must provide
+#' an outgroup (see below)
+#' @param amd A data frame containing required metadata for each tip in tree: sequence_name,
+#' sample_date, region. Optional metadata includes: sample_time(numeric), lineage, mutations.
 #' @param min_descendants Clade must have at least this many tips
 #' @param max_descendants Clade can have at most this many tips
 #' @param min_date Only include samples after this data
 #' @param max_date Only include samples before and including this date
-#' @param min_cluster_age_yrs Only include clades that have sample tips that span at least this value
-#' @param min_blen Only compute statistics for nodes descended from branches of at least this length
+#' @param min_cluster_age_yrs Only include clades that have sample tips that span at least
+#' this value
+#' @param min_blen Only compute statistics for nodes descended from branches of at least
+#' this length
 #' @param ncpu number cpu for multicore ops
 #' @param output_dir Path to directory where results will be saved
-#' @param num_ancestor_comparison When finding comparison sample for molecular clock stat, make sure sister clade has at least this many tips
-#' @param factor_geo_comparison  When finding comparison sample based on geography, make sure sample has this factor times the number within clade of interest
+#' @param num_ancestor_comparison When finding comparison sample for molecular clock stat,
+#' make sure sister clade has at least this many tips
+#' @param factor_geo_comparison  When finding comparison sample based on geography, make
+#' sure sample has this factor times the number within clade of interest
 #' @param Tg Approximate generation time in years. Growth rate is reported in these units.
 #' @param report_freq Print progress for every n'th node
-#' @param mutation_cluster_frequency_threshold If mutation is detected with more than this frequency within a cluster it may be called as a defining mutation
-#' @param test_cluster_odds A character vector of variable names in \code{amd}. The odds of a sample belonging to each cluster given tis variable will be estimated using conditional logistic regression and adjusting for time.
-#' @param test_cluster_odds_values Vector of same length as \code{test_cluster_odds}. This variable will be dichotomised by testing for equality of the variable with this value (e.g. vaccine_breakthrough == 'yes'). If NULL, the variable is assumed to be continuous (e.g. patient_age).
+#' @param mutation_cluster_frequency_threshold If mutation is detected with more than this
+#' frequency within a cluster it may be called as a defining mutation
+#' @param test_cluster_odds A character vector of variable names in \code{amd}. The odds of
+#' a sample belonging to each cluster given tis variable will be estimated using conditional
+#' logistic regression and adjusting for time.
+#' @param test_cluster_odds_value Vector of same length as \code{test_cluster_odds}. This
+#' variable will be dichotomised by testing for equality of the variable with this value
+#' (e.g. vaccine_breakthrough == 'yes'). If NULL, the variable is assumed to be continuous
+#' (e.g. patient_age).
 #' @param root_on_tip If input tree is not rooted, will root on this tip
 #' @param root_on_tip_sample_time Numeric time that tip was sampled
 #' @param detailed_output If TRUE will provide detailed figures for each cluster
-#' @import ape lubridate glue mgcv
-#' @import ggplot2 ggtree phangorn
-#' @import foreach doMPI
+#'
+#' @importFrom foreach %dopar%
+#' @importFrom ggtree %<+%
+#' @importFrom rlang .data
+#'
 #' @return Invisibly returns a data frame with cluster statistics.
 #' @export
 #'
@@ -47,7 +61,7 @@ tfpscan <- function(tre,
                     factor_geo_comparison = 5,
                     Tg = 7 / 365,
                     report_freq = 50,
-                    mutation_cluster_frequency_threshold = 0.75,
+                    mutation_cluster_frequency_threshold = 0.75, # nolint
                     test_cluster_odds = c(),
                     test_cluster_odds_value = c(),
                     root_on_tip = "Wuhan/WH04/2020",
@@ -63,14 +77,14 @@ tfpscan <- function(tre,
 
   max_time <- Inf
   if (!is.null(max_date)) {
-    max_time <- decimal_date(max_date)
+    max_time <- lubridate::decimal_date(max_date)
   } else {
     max_date <- Sys.Date()
   }
 
   min_time <- -Inf
   if (!is.null(min_date)) {
-    min_time <- decimal_date(min_date)
+    min_time <- lubridate::decimal_date(min_date)
   }
 
   # tree data
@@ -79,7 +93,7 @@ tfpscan <- function(tre,
   amd$sample_date <- as.Date(amd$sample_date)
   stopifnot(all(tre$tip.label %in% amd$sequence_name))
   if (!("sample_time" %in% colnames(amd))) {
-    amd$sample_time <- decimal_date(amd$sample_date)
+    amd$sample_time <- lubridate::decimal_date(amd$sample_date)
   }
   amd$sts <- amd$sample_time
   if (!("lineage" %in% colnames(amd))) {
@@ -90,7 +104,7 @@ tfpscan <- function(tre,
 
   # filter by sample time
   amd <- amd[(amd$sample_time >= min_time) & (amd$sts <= max_time), ]
-  sts <- setNames(amd$sample_time, amd$sequence_name)
+  sts <- stats::setNames(amd$sample_time, amd$sequence_name)
 
   # mutations var
   if (!("mutations" %in% colnames(amd))) {
@@ -98,50 +112,63 @@ tfpscan <- function(tre,
   }
 
   # retain only required variables
-  # amd <- amd[ , unique( c('sequence_name', 'sample_time', 'sample_date', 'region', 'lineage', 'mutations', test_cluster_odds) ) ]
+  # amd <- amd[ , unique( c('sequence_name', 'sample_time',
+  # 'sample_date', 'region', 'lineage', 'mutations', test_cluster_odds) ) ]
   amd <- amd[amd$sequence_name %in% tre$tip.label, ]
 
   # prune tree
-  if (!is.rooted(tre)) {
+  if (!ape::is.rooted(tre)) {
     if (!(root_on_tip %in% amd$sequence_name)) {
       stopifnot(root_on_tip %in% tre$tip.label)
-      amd <- rbind(amd, data.frame(
-        sequence_name = root_on_tip,
-        sample_time = root_on_tip_sample_time,
-        sample_date = as.Date(lubridate::date_decimal(root_on_tip_sample_time)),
-        region = NA,
-        lineage = NA
-      ))
+      amd <- rbind(
+        amd,
+        data.frame(
+          sequence_name = root_on_tip,
+          sample_time = root_on_tip_sample_time,
+          sample_date = as.Date(lubridate::date_decimal(root_on_tip_sample_time)),
+          region = NA,
+          lineage = NA
+        )
+      )
     }
   }
 
-  tre <- keep.tip(tre, intersect(tre$tip.label, amd$sequence_name))
+  tre <- ape::keep.tip(tre, intersect(
+    tre$tip.label,
+    amd$sequence_name
+  ))
   tr2 <- tre
 
-  if (!is.rooted(tre)) {
+  if (!ape::is.rooted(tre)) {
     stopifnot(root_on_tip %in% tre$tip.label)
     if (!(root_on_tip %in% tre$tip.label)) {
       stop("Outgroup sequence missing from input tree.")
     }
-    tr2 <- root(tre, outgroup = root_on_tip, resolve.root = TRUE)
+    tr2 <- ape::root(tre,
+      outgroup = root_on_tip,
+      resolve.root = TRUE
+    )
     tre <- tr2
   }
 
   # var's for fast lookup time and region
   itr2 <- match(tr2$tip.label, amd$sequence_name)
-  sts <- setNames(amd$sample_time[itr2], tr2$tip.label)
-  sequence_name2region <- setNames(amd$region[itr2], tr2$tip.label)
+  sts <- stats::setNames(amd$sample_time[itr2], tr2$tip.label)
+  sequence_name2region <- stats::setNames(amd$region[itr2], tr2$tip.label)
 
   # root to tip
-  ndel <- node.depth.edgelength(tre)
+  ndel <- ape::node.depth.edgelength(tre)
 
-  message(paste("Loaded tree & filtered by inclusion criteria", Sys.time()))
+  message(paste(
+    "Loaded tree & filtered by inclusion criteria",
+    Sys.time()
+  ))
 
   # data structures to quickly look up tree data
   # copied/adapted from treestructure
-  {
-    n <- Ntip(tre)
-    nnode <- Nnode(tre)
+  { # nolint
+    n <- ape::Ntip(tre)
+    nnode <- ape::Nnode(tre)
     poedges <- tre$edge[ape::postorder(tre), ]
     preedges <- tre$edge[rev(ape::postorder(tre)), ]
 
@@ -158,7 +185,7 @@ tfpscan <- function(tre,
     min_desc_time <- rep(Inf, n + nnode)
     min_desc_time[1:n] <- tlsts
     # postorder traverse
-    for (ie in 1:nrow(poedges)) {
+    for (ie in seq_len(nrow(poedges))) {
       a <- poedges[ie, 1]
       u <- poedges[ie, 2]
       ndesc[a] <- ndesc[a] + ndesc[u]
@@ -175,7 +202,7 @@ tfpscan <- function(tre,
       descendants[[u]][1] <- u
     }
     Ndesc_index <- rep(2, n + nnode)
-    for (ie in 1:nrow(poedges)) {
+    for (ie in seq_len(nrow(poedges))) {
       a <- poedges[ie, 1]
       u <- poedges[ie, 2]
       ## mem efficient way to fill in values for a
@@ -190,13 +217,16 @@ tfpscan <- function(tre,
     for (a in (n + 1):(n + nnode)) {
       descendantTips[[a]] <- descendantTips[[a]][descendantTips[[a]] <= n]
     }
-    ## tip labels, only including names in amd which meet inclusion criteria (excl NA )
-    descendantSids <- lapply(1:(n + nnode), function(u) na.omit(tre$tip.label[descendantTips[[u]]]))
+    ## tip labels, only including names in amd which meet inclusion criteria (excl NA)
+    descendantSids <- lapply(
+      1:(n + nnode),
+      function(u) stats::na.omit(tre$tip.label[descendantTips[[u]]])
+    )
 
     # ancestors
     st0 <- Sys.time()
     ancestors <- lapply(1:(n + nnode), function(u) integer())
-    for (ie in 1:nrow(preedges)) {
+    for (ie in seq_len(nrow(preedges))) {
       a <- preedges[ie, 1]
       u <- preedges[ie, 2]
       ancestors[[u]] <- c(ancestors[[a]], a)
@@ -209,7 +239,8 @@ tfpscan <- function(tre,
 
   message(paste("Derived lookup variables", Sys.time()))
 
-  .get_comparator_ancestor <- function(u, num_comparison = num_ancestor_comparison) {
+  .get_comparator_ancestor <- function(u,
+                                       num_comparison = num_ancestor_comparison) {
     nu <- ndesc[u]
     asu <- ancestors[[u]]
     na <- -1
@@ -230,13 +261,14 @@ tfpscan <- function(tre,
   }
 
   # matched by time and in proportion to region prevalence
-  .get_comparator_sample <- function(u, nX = factor_geo_comparison) {
+  .get_comparator_sample <- function(u,
+                                     nX = factor_geo_comparison) {
     nu <- ndesc[u]
     tu <- descendantSids[[u]]
     stu <- sts[tu]
     # ~ 		 stu = descsts [[ u ]]
-    minstu <- min(na.omit(stu))
-    maxstu <- max(na.omit(stu))
+    minstu <- min(stats::na.omit(stu))
+    maxstu <- max(stats::na.omit(stu))
 
     rtu <- sequence_name2region[tu]
     ta_r <- names(sequence_name2region[sequence_name2region %in% unique(rtu)])
@@ -260,51 +292,82 @@ tfpscan <- function(tre,
     ta
   }
 
-  .freq_figure <- function(.s1, variable = "type", value = "clade") {
-    estdf <- data.frame(time = .s1$time, estimated_logodds = .s1$estimated)
+  .freq_figure <- function(.s1,
+                           variable = "type",
+                           value = "clade") {
+    estdf <- data.frame(
+      time = .s1$time,
+      estimated_logodds = .s1$estimated
+    )
     estdf <- estdf[!duplicated(estdf$time), ]
     estdf <- estdf[order(estdf$time), ]
-    estdf <- cbind(estdf, t(sapply(1:nrow(estdf), function(k) {
+    estdf <- cbind(estdf, t(sapply(seq_len(nrow(estdf)), function(k) {
       .s2 <- .s1[.s1$time == estdf$time[k], ]
       n <- nrow(.s2)
       lo <- estdf$estimated_logodds[k]
       f <- exp(lo) / (1 + exp(lo))
-      ub <- qbinom(.975, size = n, prob = f) / n
-      lb <- qbinom(.025, size = n, prob = f) / n
+      ub <- stats::qbinom(.975, size = n, prob = f) / n
+      lb <- stats::qbinom(.025, size = n, prob = f) / n
       n1 <- sum(.s2[[variable]] == value)
       n2 <- n - n1
       ef <- n1 / n
       c(
-        lb = log(lb / (1 - lb)), ub = log(ub / (1 - ub)), n = n,
-        weights = 1 / sqrt(f * (1 - f) / n),
+        lb = log(lb / (1 - lb)),
+        ub = log(ub / (1 - ub)),
+        n = n,
+        weights = (1 / sqrt(f * (1 - f) / n)),
         logodds = log(ef / (1 - ef))
       )
     })))
 
-    p <- ggplot() +
-      geom_point(aes(x = as.Date(date_decimal(time)), y = logodds, size = n), data = estdf) +
-      theme_minimal() +
-      theme(legend.pos = "") +
-      ylab("Relative cluster frequency (log odds)") +
-      xlab("") +
+    p <- ggplot2::ggplot() +
+      ggplot2::geom_point(ggplot2::aes(
+        x = as.Date(lubridate::date_decimal(.data$time)),
+        y = .data$logodds,
+        size = n
+      ),
+      data = estdf
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(legend.pos = "") +
+      ggplot2::ylab("Relative cluster frequency (log odds)") +
+      ggplot2::xlab("") +
       # ggtitle( paste0('Frequency of ', variable, '=', value) ) +
-      geom_path(aes(x = as.Date(date_decimal(time)), y = estimated_logodds), data = estdf, color = "blue", size = 1) +
-      geom_ribbon(aes(x = as.Date(date_decimal(time)), ymin = lb, ymax = ub), data = estdf, alpha = .25)
+      ggplot2::geom_path(ggplot2::aes(
+        x = as.Date(lubridate::date_decimal(.data$time)),
+        y = .data$estimated_logodds
+      ),
+      data = estdf,
+      color = "blue",
+      size = 1
+      ) +
+      ggplot2::geom_ribbon(ggplot2::aes(
+        x = as.Date(lubridate::date_decimal(.data$time)),
+        ymin = .data$lb,
+        ymax = .data$ub
+      ),
+      data = estdf,
+      alpha = .25
+      )
 
     p
   }
 
-  .logistic_growth_stat <- function(u, ta = NULL, generation_time_scale = Tg) {
+  .logistic_growth_stat <- function(u,
+                                    ta = NULL,
+                                    generation_time_scale = Tg) {
     if (is.null(ta)) {
       ta <- .get_comparator_sample(u)
     }
     if (is.null(ta)) { # if still null, cant get good comparison
       return(
         list(
-          lgr = NA, lgrp = .5, gam_r = NA,
+          lgr = NA,
+          lgrp = .5,
+          gam_r = NA,
           AIC = NA,
           AIC_gam = NA,
-          growthrates = setNames(c(NA, NA), c("Logistic", "GAM")),
+          growthrates = stats::setNames(c(NA, NA), c("Logistic", "GAM")),
           relative_model_support = NA,
           plot = NULL
         )
@@ -313,11 +376,20 @@ tfpscan <- function(tre,
     tu <- descendantSids[[u]]
     sta <- sts[ta]
     stu <- sts[tu]
-    X <- data.frame(time = c(sta, stu), type = c(rep("control", length(ta)), rep("clade", length(tu))))
-    X <- na.omit(X)
-    m <- glm(type == "clade" ~ time, data = X, family = binomial(link = "logit"))
+    X <- data.frame(
+      time = c(sta, stu),
+      type = c(
+        rep("control", length(ta)),
+        rep("clade", length(tu))
+      )
+    )
+    X <- stats::na.omit(X)
+    m <- stats::glm(type == "clade" ~ time,
+      data = X,
+      family = stats::binomial(link = "logit")
+    )
     s <- summary(m)
-    rv <- unname(coef(m)[2] * generation_time_scale)
+    rv <- unname(stats::coef(m)[2] * generation_time_scale)
     p <- NA
 
     if (is.na(rv)) {
@@ -326,34 +398,54 @@ tfpscan <- function(tre,
       p <- s$coefficients[2, 4]
     }
     ## time dep growth ; needs a larger sample size
-    X$estimated <- predict(m)
+    X$estimated <- stats::predict(m)
 
     if (compute_gam & (length(tu) > 50)) {
-      m1 <- mgcv::gam(type == "clade" ~ s(time, bs = "bs", k = 4, m = 1), family = binomial(link = "logit"), data = X)
-      X$estimated <- predict(m1)
+      m1 <- mgcv::gam(
+        type == "clade" ~ s(time, bs = "bs", k = 4, m = 1
+      ),
+      family = stats::binomial(link = "logit"),
+      data = X
+      )
+      X$estimated <- stats::predict(m1)
 
-      tout <- seq(min(X$time), max(X$time), length = 5)
+      tout <- seq(min(X$time),
+        max(X$time),
+        length = 5
+      )
       tout1 <- tout[4] + diff(tout)[1] / 2
-      dlo <- diff(predict(m1, newdata = data.frame(type = NA, time = c(tout1, max(tout)))))
+
+      dlo <- diff(stats::predict(m1,
+        newdata = data.frame(
+          type = NA,
+          time = c(tout1, max(tout))
+        )
+      ))
       r <- dlo * Tg / ((max(tout) - tout1))
-      aic <- c(AIC(m), AIC(m1))
+      aic <- c(stats::AIC(m), stats::AIC(m1))
     } else {
       r <- NA
-      aic <- c(AIC(m), Inf)
+      aic <- c(stats::AIC(m), Inf)
     }
 
     list(
-      lgr = rv, lgrp = p, gam_r = r,
+      lgr = rv,
+      lgrp = p,
+      gam_r = r,
       AIC = aic[1],
       AIC_gam = aic[2],
-      growthrates = setNames(c(rv, r), c("Logistic", "GAM")),
-      relative_model_support = setNames(exp(min(aic) - aic) / 2, c("Logistic", "GAM")),
+      growthrates = stats::setNames(c(rv, r), c("Logistic", "GAM")),
+      relative_model_support = stats::setNames(
+        exp(min(aic) - aic) / 2,
+        c("Logistic", "GAM")
+      ),
       plot = .freq_figure(X)
     )
   }
 
   # log median p-value of rtt predicted divergence of tips under u
-  .clock_outlier_stat <- function(u, a = NULL) {
+  .clock_outlier_stat <- function(u,
+                                  a = NULL) {
     if (is.null(a)) {
       a <- .get_comparator_ancestor(u)
     }
@@ -363,33 +455,34 @@ tfpscan <- function(tre,
 
     tu <- descendantSids[[u]]
     ta <- setdiff(descendantSids[[a]], tu)
-
     sta <- sts[ta]
     stu <- sts[tu]
     # ~ 		stu = descsts [[ u ]]
-
     iu <- match(tu, tre$tip.label)
     ia <- match(ta, tre$tip.label)
     ndelu <- ndel[iu]
     ndela <- ndel[ia]
-    m <- lm(ndela ~ sta)
+    m <- stats::lm(ndela ~ sta)
     r2 <- summary(m)$r.squared
-    oosp <- predict(m, newdata = data.frame(sta = unname(stu))) - ndelu
-    sqrt(mean(oosp^2)) * sign(mean(oosp))
+    oosp <- stats::predict(m, newdata = data.frame(sta = unname(stu))) - ndelu
+    return(sqrt(mean(oosp^2)) * sign(mean(oosp)))
   }
 
   # Compute 'proportionality' statistics for node (u) and given variable (var)
   # e.g. if sample is from vaccine breakthrough, is there higher odds that sample is in clade?
-  .var_proportionality_stat <- function(u, ta,
-                                        var = "breakthrough2", value = TRUE,
+  .var_proportionality_stat <- function(u,
+                                        ta,
+                                        var = "breakthrough2",
+                                        value = TRUE,
                                         f = clade ~ time + var,
                                         form_index = 3) {
     if (is.null(ta)) {
-      return(setNames(c(NA, 1), paste(sep = "_", var, c("logodds", "p"))))
+      return(stats::setNames(c(NA, 1), paste(sep = "_", var, c("logodds", "p"))))
     }
     tu <- descendantSids[[u]]
     sta <- sts[ta]
     stu <- sts[tu]
+
     X <- data.frame(
       tip = c(ta, tu),
       time = c(sta, stu),
@@ -401,19 +494,25 @@ tfpscan <- function(tre,
     }
     X$clade <- (X$type == "clade")
 
-    m <- glm(f, data = X, family = binomial(link = "logit"))
+    m <- stats::glm(f,
+      data = X,
+      family = stats::binomial(link = "logit")
+    )
     s <- summary(m)
-    rv <- unname(coef(m)[form_index])
+    rv <- unname(stats::coef(m)[form_index])
     p <- NA
     if (is.na(rv)) {
       message("NA proportionality stat, node: ", u)
     } else {
       p <- s$coefficients[form_index, 4]
     }
-    setNames(c(rv, p), paste(sep = "_", var, c("logodds", "p")))
+    stats::setNames(c(rv, p), paste(sep = "_", var, c("logodds", "p")))
   }
 
-  .cluster_muts <- function(u, a = NULL, mut_variable = "mutations") {
+  .cluster_muts <- function(u,
+                            a = NULL,
+                            mut_variable = "mutations") {
+
     tu <- descendantSids[[u]]
     mdf.u <- amd[amd$sequence_name %in% tu, ]
     ## find comparator ancestor
@@ -422,7 +521,7 @@ tfpscan <- function(tre,
     }
     asids <- setdiff(descendantSids[[a]], descendantSids[[u]])
     mdf.a <- amd[amd$sequence_name %in% asids, ]
-    if (nrow(mdf.a) == 0 | nrow(mdf.u) == 0) {
+    if (nrow(mdf.a) == 0 || nrow(mdf.u) == 0) {
       return(list(defining = NA, all = NA))
     }
     vtabu <- sort(table(do.call(c, strsplit(mdf.u[[mut_variable]], split = "\\|"))) / nrow(mdf.u))
@@ -448,7 +547,7 @@ tfpscan <- function(tre,
     } else {
       y <- data.frame(Lineage = lins[1], Frequency = 1)
     }
-    y <- y[1:min(nrow(y), maxrows), ]
+    y <- y[seq_len(min(nrow(y)), maxrows), ]
     y$Frequency <- paste0(round(y$Frequency * 100), "%")
     paste(knitr::kable(y, "simple"), collapse = "\n") # convert to string
   }
@@ -465,34 +564,47 @@ tfpscan <- function(tre,
     } else {
       y <- data.frame(Region = regs[1], Frequency = 1)
     }
-    y <- y[1:min(nrow(y), maxrows), ]
+    y <- y[seq_len(min(nrow(y)), maxrows), ]
     y$Frequency <- paste0(round(y$Frequency * 100), "%")
     paste(knitr::kable(y, "simple"), collapse = "\n") # convert to string
   }
 
-  .cluster_tree <- function(tips) # tr2, amd
-  {
-    tr <- keep.tip(tre, tips)
-    gtr <- ggtree(tr)
+
+  .cluster_tree <- function(tips) { # tr2, amd # tre?
+    tr <- ape::keep.tip(tre, tips)
+    gtr <- ggtree::ggtree(tr)
     mutlist <- strsplit(amd[match(tips, amd$sequence_name), ]$mutations, split = "\\|")
     # ~ sharedmut = Reduce( intersect,  mutlist )
     mutthresh <- .75
     tx <- table(do.call(c, mutlist))
-    tx <- tx / Ntip(tr)
+    tx <- tx / ape::Ntip(tr)
     sharedmut <- names(tx)[tx >= mutthresh] # TODO need a better way to get sharedmut
     segregatingmut <- lapply(mutlist, function(x) setdiff(x, sharedmut))
     allsegregating <- Reduce(union, segregatingmut)
 
     # remove stops from allseg
-    allsegregating <- allsegregating[!grepl(allsegregating, patt = "[*]$")]
-    allsegregating <- allsegregating[!grepl(allsegregating, patt = ":[*]")]
-    annots <- rep("", Ntip(tr) + Nnode(tr))
+    allsegregating <- allsegregating[!grepl(allsegregating,
+      pattern = "[*]$"
+    )]
+    allsegregating <- allsegregating[!grepl(allsegregating,
+      pattern = ":[*]"
+    )]
+    annots <- rep("", ape::Ntip(tr) + ape::Nnode(tr))
+
     if (length(allsegregating) > 0) {
-      allseg1 <- substr(regmatches(allsegregating, regexpr(allsegregating, patt = ":[A-Z]")), 2, 2)
-      allseg2 <- regmatches(allsegregating, regexpr(allsegregating, patt = "[A-Z*]$"))
-      sites_post <- regmatches(allsegregating, regexpr(allsegregating, patt = ":.*$"))
+      allseg1 <- substr(regmatches(allsegregating, regexpr(allsegregating,
+        pattern = ":[A-Z]"
+      )), 2, 2)
+      allseg2 <- regmatches(allsegregating, regexpr(allsegregating,
+        pattern = "[A-Z*]$"
+      ))
+      sites_post <- regmatches(allsegregating, regexpr(allsegregating,
+        pattern = ":.*$"
+      ))
       sites_post <- substr(sites_post, 3, nchar(sites_post) - 1)
-      sites_pre <- regmatches(allsegregating, regexpr(allsegregating, patt = "^.*:"))
+      sites_pre <- regmatches(allsegregating, regexpr(allsegregating,
+        pattern = "^.*:"
+      ))
       sites <- paste0(sites_pre, sites_post)
 
       aas <- c()
@@ -508,30 +620,50 @@ tfpscan <- function(tre,
       aas <- aas[, order(sites)]
       aas[is.na(aas)] <- "X"
       sites <- sort(sites)
-      # aas1 = as.AAbin( aas )
-      aas2 <- as.phyDat(aas, type = "AA")
-      ap <- ancestral.pars(tr, aas2, return = "phyDat")
+      aas2 <- phangorn::as.phyDat(aas, type = "AA")
+      ap <- phangorn::ancestral.pars(
+        tr,
+        aas2,
+        return = "phyDat"
+      )
       ap1 <- as.character(ap)
 
-      for (ie in postorder(tr)) {
+      for (ie in ape::postorder(tr)) {
         a <- tr$edge[ie, 1]
         u <- tr$edge[ie, 2]
         j <- which(ap1[a, ] != ap1[u, ])
         # keep only S and N annots
-        j <- j[grepl(sites[j], patt = "^[SN]:")]
+        j <- j[grepl(sites[j], pattern = "^[SN]:")]
         annots[u] <- paste(paste0(sites[j], ap1[u, j]), collapse = ",")
         if (nchar(annots[u]) == 0) annots[u] <- NA
       }
     }
-    nodedf <- data.frame(node = 1:(Ntip(tr) + Nnode(tr)), annot = annots, stringsAsFactors = FALSE)
-    gtr1 <- gtr %<+% nodedf
-    gtr1 <- gtr1 + geom_label(aes(x = branch, label = annot, size = 6))
+    nodedf <- data.frame(
+      node = 1:(ape::Ntip(tr) + ape::Nnode(tr)),
+      annot = annots,
+      stringsAsFactors = FALSE
+    )
 
-    gtr1 <- gtr1 + geom_tiplab(align = FALSE)
+    gtr1 <- gtr %<+% nodedf
+    gtr1 <- gtr1 + ggplot2::geom_label(ggplot2::aes(
+      x = .data$branch,
+      label = .data$annot,
+      size = 6
+    ))
+    gtr1 <- gtr1 + ggtree::geom_tiplab(align = TRUE)
     gtr2 <- gtr1
 
     if (length(allsegregating) < 100) {
-      gtr2 <- gheatmap(gtr1, as.data.frame(aas), width = .66, offset = 0.0005, colnames = FALSE, colnames_angle = -90, colnames_position = "top", colnames_offset_y = -2) + theme(legend.position = "none")
+      gtr2 <- ggtree::gheatmap(gtr1,
+        as.data.frame(aas),
+        width = .66,
+        offset = 0.0005,
+        colnames = FALSE,
+        colnames_angle = -90,
+        colnames_position = "top",
+        colnames_offset_y = -2
+      ) +
+        ggplot2::theme(legend.position = "none")
     }
     gtr2
   }
@@ -562,9 +694,16 @@ tfpscan <- function(tre,
     X <- data.frame(
       cluster_id = as.character(u),
       node_number = u,
-      parent_number = ifelse(is.null(ancestors[[u]]), NA, tail(ancestors[[u]], 1)),
-      most_recent_tip = as.Date(date_decimal(max(na.omit(sts[tu])))),
-      least_recent_tip = as.Date(date_decimal(min(na.omit(sts[tu])))),
+      parent_number = ifelse(is.null(ancestors[[u]]),
+        NA,
+        utils::tail(ancestors[[u]], 1)
+      ),
+      most_recent_tip = as.Date(
+        lubridate::date_decimal(max(stats::na.omit(sts[tu])))
+      ),
+      least_recent_tip = as.Date(
+        lubridate::date_decimal(min(stats::na.omit(sts[tu])))
+      ),
       cluster_size = length(tu),
       logistic_growth_rate = best_gr,
       logistic_growth_rate_p = lgs$lgrp,
@@ -594,39 +733,64 @@ tfpscan <- function(tre,
       i <- which(nodes == u)
       message(paste("Progress", round(100 * i / length(nodes)), "%"))
     }
-
     if (detailed_output) {
-      cldir <- glue("{output_dir}/{as.character(u)}")
+      cldir <- glue::glue("{output_dir}/{as.character(u)}")
       dir.create(cldir, showWarnings = FALSE)
+
       # summary stat data
-      write.csv(data.frame(statistic = t(X[1, c("logistic_growth_rate", "simple_logistic_growth_rate", "logistic_growth_rate_p", "gam_logistic_growth_rate", "simple_logistic_model_support", "clock_outlier")])), file = glue("{cldir}/summary.csv"))
+      utils::write.csv(data.frame(statistic = t(X[1, c(
+        "logistic_growth_rate",
+        "simple_logistic_growth_rate",
+        "logistic_growth_rate_p",
+        "gam_logistic_growth_rate",
+        "simple_logistic_model_support",
+        "clock_outlier"
+      )])),
+      file = glue::glue("{cldir}/summary.csv")
+      )
       # freq plot
       if (!is.null(lgs$plot)) {
-        suppressMessages(ggsave(lgs$plot, file = glue("{cldir}/frequency.pdf")))
-        suppressMessages(ggsave(lgs$plot, file = glue("{cldir}/frequency.png"), bg = "white"))
+        suppressMessages(ggplot2::ggsave(lgs$plot,
+          filename = glue::glue("{cldir}/frequency.pdf")
+        ))
+        suppressMessages(ggplot2::ggsave(lgs$plot,
+          filename = glue::glue("{cldir}/frequency.png"),
+          bg = "white"
+        ))
       }
+
       # tree plot
       if (length(tu) < 1e3) {
         gtr <- .cluster_tree(tu)
         suppressMessages(
-          ggsave(gtr,
-            file = glue("{cldir}/clustertree.pdf"),
+          ggplot2::ggsave(gtr,
+            filename = glue::glue("{cldir}/clustertree.pdf"),
             height = max(6, floor(length(tu) / 5)),
-            width = min(64, max(36, sqrt(length(tu)))),
+            width = min(44, max(24, sqrt(length(tu)))),
             limitsize = FALSE
           )
         )
       }
+
       # clock figure TODO
       # tip table
-      write.csv(amd[amd$sequence_name %in% tu, ], file = glue("{cldir}/sequences.csv"))
+      utils::write.csv(amd[amd$sequence_name %in% tu, ],
+        file = glue::glue("{cldir}/sequences.csv")
+      )
       # reg summary
-      write.csv(reg_summary, file = glue("{cldir}/regional_composition.csv"))
+      utils::write.csv(reg_summary,
+        file = glue::glue("{cldir}/regional_composition.csv")
+      )
       # lineage summary
-      write.csv(lineage_summary, file = glue("{cldir}/lineage_composition.csv"))
+      utils::write.csv(lineage_summary,
+        file = glue::glue("{cldir}/lineage_composition.csv")
+      )
       # cocirc lineage summary
-      write.csv(cocirc_summary, file = glue("{cldir}/cocirculating_lineages.csv"))
+      utils::write.csv(cocirc_summary,
+        file = glue::glue("{cldir}/cocirculating_lineages.csv")
+      )
     }
+
     X
   }
 
@@ -640,9 +804,9 @@ tfpscan <- function(tre,
 
   if (ncpu > 1) {
     message("Initiating MPI cluster")
-    mpiclust <- startMPIcluster(count = ncpu)
-    registerDoMPI(mpiclust)
-    foreach(
+    mpiclust <- doMPI::startMPIcluster(count = ncpu)
+    doMPI::registerDoMPI(mpiclust)
+    foreach::foreach(
       u = nodes,
       .combine = rbind,
       .packages = c("lubridate", "glue", "mgcv", "ggplot2", "ggtree", "phangorn"),
@@ -652,11 +816,11 @@ tfpscan <- function(tre,
     ) %dopar% {
       tryCatch(.process.node(u),
         error = function(e) {
-          saveRDS(e, file = glue("{u}-err.rds"))
+          saveRDS(e, file = glue::glue("{u}-err.rds"))
           return(e)
         }
       )
-    } -> Y
+    } -> Y # nolint
   } else {
     Y <- c()
     for (u in nodes) {
@@ -673,18 +837,18 @@ tfpscan <- function(tre,
   }
   Y <- Y[order(Y$logistic_growth_rate, decreasing = TRUE), ]
 
-  ofn1 <- glue("{output_dir}/scanner-{max_date}.rds")
-  ofn3 <- glue("{output_dir}/scanner-env-{max_date}.rds")
+  ofn1 <- glue::glue("{output_dir}/scanner-{max_date}.rds")
+  ofn3 <- glue::glue("{output_dir}/scanner-env-{max_date}.rds")
   saveRDS(Y, file = ofn1)
   message("saving image ... ")
   # save internal variables and functions
   e0 <- environment()
   saveRDS(e0, file = ofn3)
-  message(glue("Data written to {ofn1} and {ofn3}. Returning data frame invisibly."))
+  message(glue::glue("Data written to {ofn1} and {ofn3}. Returning data frame invisibly."))
 
   if (ncpu > 1) {
-    closeCluster(mpiclust)
-    mpi.finalize()
+    doMPI::closeCluster(mpiclust)
+    Rmpi::mpi.finalize()
   }
   invisible(Y)
 }
@@ -693,29 +857,39 @@ tfpscan <- function(tre,
 
 
 #' Run a fast treedater/mlesky analysis for a given node in the scanner output
-#' @import mlesky
-#' @import treedater
+#' @param u integer
+#' @param scanner_env RDS file with scanner environment
 #' @export
-get_clusternode_mlesky <- function(u = 406318, scanner_env = readRDS("scanner-env-2021-03-03.rds")) {
+get_clusternode_mlesky <- function(u = 406318,
+                                   scanner_env = readRDS("scanner-env-2021-03-03.rds")) {
   e1 <- as.environment(scanner_env)
   attach(e1)
 
   mr <- 5.9158E-4
-  utre <- keep.tip(tre, descendantSids[[u]])
+  utre <- ape::keep.tip(tre, descendantSids[[u]])
   sample_times <- sts[utre$tip.label]
 
-  tr <- di2multi(utre, tol = 1e-05)
-  tr <- unroot(multi2di(tr))
+  tr <- ape::di2multi(utre, tol = 1e-05)
+  tr <- ape::unroot(ape::multi2di(tr))
   tr$edge.length <- pmax(1 / 29000 / 5, tr$edge.length)
-  tr3 <- dater(unroot(tr), sts[tr$tip.label],
-    s = 29000, omega0 = mr,
-    numStartConditions = 0, meanRateLimits = c(mr, mr + 1e-6), ncpu = 6
+
+  tr3 <- treedater::dater(ape::unroot(tr),
+    sts[tr$tip.label],
+    s = 29000,
+    omega0 = mr,
+    numStartConditions = 0,
+    meanRateLimits = c(mr, mr + 1e-6),
+    ncpu = 6
   )
 
-  msg <- mlskygrid(tr3,
-    tau = NULL, tau_lower = .001, tau_upper = 10, sampleTimes = sts[tr3$tip.label],
-    res = 10, ncpu = 3
+  msg <- mlesky::mlskygrid(tr3,
+    tau = NULL,
+    tau_lower = .001,
+    tau_upper = 10,
+    sampleTimes = sts[tr3$tip.label],
+    res = 10,
+    ncpu = 3
   )
 
-  list(mlesky = msg, timetree = tr3, tree = tr)
+  return(list(mlesky = msg, timetree = tr3, tree = tr))
 }
