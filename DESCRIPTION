@@ -33,6 +33,7 @@ Suggests:
   doMPI
 Remotes: 
   emvolz-phylodynamics/mlesky
+SystemRequirements: libopenmpi-dev
 Encoding: UTF-8
 License: MIT + file LICENSE
 RoxygenNote: 7.2.1
