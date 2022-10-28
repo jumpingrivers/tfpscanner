@@ -1,4 +1,3 @@
-
 #' Generate interactive tree visualisations and scatter plots for illustrating scannint statistics.
 #'
 #' This will produce a set of html widgets which will highlight by colour and tooltips statistics such as growth rate and molecular clock outliers.
@@ -19,7 +18,6 @@ treeview <- function(e0,
                      output_dir = "treeview",
                      heatmap_width = .075,
                      heatmap_lab_offset = -6) {
-
 
   # require logistic growth rate, prevent non-empty
   branch_cols <- unique(c("logistic_growth_rate", branch_cols))
@@ -135,9 +133,11 @@ treeview <- function(e0,
   tablin <- table(td$lineages1[!(sc0$lineage1 %in% c("None", "B.1"))])
   tablin <- tablin[order(tablin)]
   lins <- names(tablin)
+
   # find a good internal node to represent the mrca of each lineage
   lin_nodes <- c()
   lin_node_names <- c()
+
   for (lin in lins) {
     whichrep <- na.omit(sc0$representative[sc0$lineage1 == lin])
     res <- NULL
@@ -164,8 +164,6 @@ treeview <- function(e0,
       lin_nodes <- c(lin_nodes, res)
       lin_node_names <- c(lin_node_names, lin)
     }
-    # lin_node_names <- lin_node_names[!duplicated(lin_nodes) ]
-    # lin_nodes <- lin_nodes[!duplicated(lin_nodes) ]
 
     res
   }
@@ -432,3 +430,10 @@ treeview <- function(e0,
 
   invisible(pl)
 }
+
+# ~ treeview( e0 = 'tfpscan-2021-11-25/scanner-env-2021-11-25.rds'
+# ~ , branch_cols = c('logistic_growth_rate')
+# ~ , mutations = c( 'S:Y145H', 'N:Q9L')
+# ~ , lineages = c( 'AY\\.9' , 'AY\\.43' )
+# ~ , output_dir = 'treeview'
+# ~ )

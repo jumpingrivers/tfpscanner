@@ -114,8 +114,10 @@ tfpscan <- function(tre,
       ))
     }
   }
+
   tre <- keep.tip(tre, intersect(tre$tip.label, amd$sequence_name))
   tr2 <- tre
+
   if (!is.rooted(tre)) {
     stopifnot(root_on_tip %in% tre$tip.label)
     if (!(root_on_tip %in% tre$tip.label)) {
@@ -253,8 +255,8 @@ tfpscan <- function(tre,
     if (na < nu) {
       return(NULL)
     }
-    ta <- sample(ta0, replace = FALSE, size = na, prob = wa)
 
+    ta <- sample(ta0, replace = FALSE, size = na, prob = wa)
     ta
   }
 
@@ -317,6 +319,7 @@ tfpscan <- function(tre,
     s <- summary(m)
     rv <- unname(coef(m)[2] * generation_time_scale)
     p <- NA
+
     if (is.na(rv)) {
       message("NA growth stat, node: ", u)
     } else {
@@ -324,6 +327,7 @@ tfpscan <- function(tre,
     }
     ## time dep growth ; needs a larger sample size
     X$estimated <- predict(m)
+
     if (compute_gam & (length(tu) > 50)) {
       m1 <- mgcv::gam(type == "clade" ~ s(time, bs = "bs", k = 4, m = 1), family = binomial(link = "logit"), data = X)
       X$estimated <- predict(m1)
@@ -508,6 +512,7 @@ tfpscan <- function(tre,
       aas2 <- as.phyDat(aas, type = "AA")
       ap <- ancestral.pars(tr, aas2, return = "phyDat")
       ap1 <- as.character(ap)
+
       for (ie in postorder(tr)) {
         a <- tr$edge[ie, 1]
         u <- tr$edge[ie, 2]
@@ -531,7 +536,6 @@ tfpscan <- function(tre,
     gtr2
   }
 
-
   # all analyses for a particular node
   .process.node <- function(u) {
     tu <- descendantSids[[u]]
@@ -544,7 +548,6 @@ tfpscan <- function(tre,
       best_gr <- lgs$growthrates[which.max(lgs$relative_model_support)]
     }
 
-
     reg_summary <- tryCatch(.region_summary(tu), error = function(e) as.character(e))
     cocirc_summary <- tryCatch(.lineage_summary(ta), error = function(e) as.character(e))
     lineage_summary <- tryCatch(.lineage_summary(tu), error = function(e) as.character(e))
@@ -555,6 +558,7 @@ tfpscan <- function(tre,
     } else {
       cmut <- list(defining = NA, all = NA)
     }
+
     X <- data.frame(
       cluster_id = as.character(u),
       node_number = u,
@@ -578,6 +582,7 @@ tfpscan <- function(tre,
       all_mutations = paste(cmut$all, collapse = "|"),
       stringsAsFactors = FALSE
     )
+
     for (i in seq_along(test_cluster_odds)) {
       vn <- test_cluster_odds[i]
       val <- test_cluster_odds_value[i]
@@ -589,6 +594,7 @@ tfpscan <- function(tre,
       i <- which(nodes == u)
       message(paste("Progress", round(100 * i / length(nodes)), "%"))
     }
+
     if (detailed_output) {
       cldir <- glue("{output_dir}/{as.character(u)}")
       dir.create(cldir, showWarnings = FALSE)
@@ -631,6 +637,7 @@ tfpscan <- function(tre,
   nodes <- intersect(nodes, nodes_blenConstraintSatisfied)
   report_nodes <- nodes[seq(1, length(nodes), by = report_freq)] # progress reporting
   node_ancestors <- do.call(c, lapply(nodes, function(u) ancestors[[u]]))
+
   if (ncpu > 1) {
     message("Initiating MPI cluster")
     mpiclust <- startMPIcluster(count = ncpu)
@@ -660,6 +667,7 @@ tfpscan <- function(tre,
       Y <- rbind(Y, X)
     }
   }
+
   if (!all(nodes %in% Y$node_number)) {
     stop("Statistics not computed for all nodes. Possible that memory exceeded with ncpu > 1. Try with ncpu = 1.")
   }
