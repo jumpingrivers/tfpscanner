@@ -400,7 +400,7 @@ tfpscan <- function(tre,
     ## time dep growth ; needs a larger sample size
     X$estimated <- stats::predict(m)
 
-    if (compute_gam & (length(tu) > 50)) {
+    if (compute_gam && (length(tu) > 50)) {
       m1 <- mgcv::gam(
         type == "clade" ~ s(time, bs = "bs", k = 4, m = 1
       ),
