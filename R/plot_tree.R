@@ -228,8 +228,8 @@ create_noninteractive_ggtree <- function(ggtree_data,
 #' @inheritParams   create_trees
 #'
 #' @return  A ggtree object. The \code{$data} entry has additional entries (\code{mouseover},
-#'   \code{colour_var}, \code{defmuts}, \code{allmuts}) that are used when presented interactively
-#'   by \code{ggiraph}.
+#'   \code{colour_var}, \code{allmuts}) that are used when presented interactively by
+#'   \code{ggiraph}.
 
 append_interactivity_data <- function(ggobj,
                                       branch_col,
@@ -265,37 +265,6 @@ append_interactivity_data <- function(ggobj,
     )
   })
 
-  ## table with geo composition
-  ttregtabs <- ggobj$data$region_summary #
-  ## cocirc
-  ttcocirc <- ggobj$data$cocirc_summary #
-
-  ## defining muts
-  ttdefmuts <- sapply(match(ggobj$data$cluster_id, sc0$cluster_id), function(isc0) {
-    if (is.na(isc0)) {
-      return("")
-    }
-    paste(
-      sep = "\n",
-      "Cluster branch mutations:",
-      gsub(
-        x = tryCatch(
-          stringr::str_wrap(
-            paste(
-              collapse = " ",
-              sort_mutations(cmuts[[as.character(sc0$node_number[isc0])]]$defining)
-            ),
-            width = 60
-          ),
-          error = function(e) browser()
-        ),
-        pattern = " ",
-        replacement = ", "
-      ),
-      "\n"
-    )
-  }) # end of sapply
-
   ttallmuts <- sapply(match(ggobj$data$cluster_id, sc0$cluster_id), function(isc0) {
     if (is.na(isc0)) {
       return("")
@@ -318,7 +287,6 @@ append_interactivity_data <- function(ggobj,
     )
   }) # end of sapply
 
-  ggobj$data$defmuts <- ttdefmuts
   ggobj$data$allmuts <- ttallmuts
   if (!is.null(mut_regex)) {
     for (mre in mut_regex) {
@@ -331,10 +299,6 @@ append_interactivity_data <- function(ggobj,
   ggobj$data$mouseover <- sapply(seq_along(ttdfs), function(i) {
     paste0(
       "Statistics:\n", ttdfs[i],
-      "\n\nGeography:\n", ttregtabs[i],
-      "\n\nCo-circulating with:\n", ttcocirc[i],
-      "\n\n", ttdefmuts[i],
-      "\n", ttallmuts[i],
       "\n",
       collapse = "\n"
     )

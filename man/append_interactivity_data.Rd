@@ -18,8 +18,8 @@ statistic under study here (`logistic_growth_rate`, `clock_outlier`).}
 }
 \value{
 A ggtree object. The \code{$data} entry has additional entries (\code{mouseover},
-  \code{colour_var}, \code{defmuts}, \code{allmuts}) that are used when presented interactively
-  by \code{ggiraph}.
+  \code{colour_var}, \code{allmuts}) that are used when presented interactively by
+  \code{ggiraph}.
 }
 \description{
 Adds data to a ggtree object to allow mouse-over tooltips etc when presented interactively
