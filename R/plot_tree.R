@@ -240,22 +240,8 @@ append_interactivity_data <- function(ggobj,
   ## standard meta data
   ttdfs <- apply(ggobj$data, 1, FUN = function(x) {
     z <- as.list(x)
-    lgr <- as.numeric(z$logistic_growth_rate)
-    # TODO: replace with() with explicit z$cluster_id etc
-    y <- with(
-      z,
-      data.frame(
-        `Cluster ID` = glue::glue("#{cluster_id}"),
-        `Cluster size` = cluster_size,
-        `Date range` = date_range,
-        `Example sequence` = label,
-        `Logistic growth` = paste0(
-          ifelse(lgr > 0, "+", ""),
-          round(lgr * 100), "%"
-        ),
-        `Mol clock outlier` = clock_outlier,
-        `Lineages` = lineages
-      )
+    y <- data.frame(
+      `Cluster ID` = z[["cluster_id"]]
     )
     y <- t(y)
     colnames(y) <- ""
@@ -295,7 +281,6 @@ append_interactivity_data <- function(ggobj,
     }
   }
 
-  # make html widget
   ggobj$data$mouseover <- sapply(seq_along(ttdfs), function(i) {
     paste0(
       "Statistics:\n", ttdfs[i],
