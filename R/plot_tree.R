@@ -281,13 +281,7 @@ append_interactivity_data <- function(ggobj,
     }
   }
 
-  ggobj$data$mouseover <- sapply(seq_along(ttdfs), function(i) {
-    paste0(
-      "Statistics:\n", ttdfs[i],
-      "\n",
-      collapse = "\n"
-    )
-  })
+  ggobj$data$mouseover <- ttdfs
   ggobj$data$colour_var <- ggobj$data[[branch_col]]
 
   ggobj
