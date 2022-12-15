@@ -232,21 +232,9 @@ create_noninteractive_ggtree <- function(ggtree_data,
 append_interactivity_data <- function(ggobj,
                                       branch_col) {
   # make mouseover info
-  ## standard meta data
-  ttdfs <- apply(ggobj$data, 1, FUN = function(x) {
-    z <- as.list(x)
-    y <- data.frame(
-      `Cluster ID` = z[["cluster_id"]]
-    )
-    y <- t(y)
-    colnames(y) <- ""
-    tryCatch(
-      paste(knitr::kable(y, "simple"), collapse = "\n"),
-      error = function(e) paste(knitr::kable(y, "markdown"), collapse = "\n")
-    )
-  })
-
-  ggobj$data$mouseover <- ttdfs
+  ggobj$data$mouseover <- glue::glue(
+    "Cluster ID: {ggobj$data$cluster_id}"
+  )
   ggobj$data$colour_var <- ggobj$data[[branch_col]]
 
   ggobj
