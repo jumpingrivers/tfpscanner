@@ -1,3 +1,8 @@
+# tfpscanner 0.3.1 _2023-07-10_
+
+- Add a function to extract the node-annotation data-frame that is used when making interactive
+  tree plots `extract_tree_dataframe(sc0, tr2, branch_cols)` away from `treeview()`
+
 # tfpscanner 0.3.0 _2023-07-06_
 
 - Feature: function `create_browser_data()` was added to generate all treeview illustrations and
