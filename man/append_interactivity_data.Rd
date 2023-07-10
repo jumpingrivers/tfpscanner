@@ -2,25 +2,21 @@
 % Please edit documentation in R/plot_tree.R
 \name{append_interactivity_data}
 \alias{append_interactivity_data}
-\title{Adds data to a ggtree object to allow mouse-over tooltips etc when presented interactively}
+\title{Adds data to a \code{ggtree} object to allow mouse-over tooltips etc when presented interactively}
 \usage{
-append_interactivity_data(ggobj, branch_col, sc0, cmuts, mut_regex)
+append_interactivity_data(ggobj, branch_col)
 }
 \arguments{
 \item{ggobj}{A \code{ggtree} object.}
 
 \item{branch_col}{Scalar string. The name of a column within \code{ggobj$data} defining the
 statistic under study here (`logistic_growth_rate`, `clock_outlier`).}
-
-\item{sc0, cmuts}{Data-frames.}
-
-\item{mut_regex}{Regular expression. Defines the mutations under study here.}
 }
 \value{
 A ggtree object. The \code{$data} entry has additional entries (\code{mouseover},
-  \code{colour_var}, \code{defmuts}, \code{allmuts}) that are used when presented interactively
-  by \code{ggiraph}.
+  \code{colour_var}, \code{allmuts}) that are used when presented interactively by
+  \code{ggiraph}.
 }
 \description{
-Adds data to a ggtree object to allow mouse-over tooltips etc when presented interactively
+Adds data to a \code{ggtree} object to allow mouse-over tooltips etc when presented interactively
 }
