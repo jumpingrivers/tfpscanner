@@ -10,10 +10,10 @@
 #'   \code{lins$node_names} a string vector giving the name of the lineage. For \code{nodes} and
 #'   \code{node_names} the order of entries matches that for \code{lins}.
 #' @param   sc0,cmuts   Data-frames.
-#' @param   heatmap_width,heatmap_lab_offset    Parameters for positioning of the heatmap.
 #' @param   mut_regex   Regular expression. Defines the mutations under study here.
 #' @param   colours    Vector of colours.
 #' @param   colour_limits   Min and max values for the colours.
+#' @inheritParams   treeview
 #'
 #' @return  A list with several entries. Each entry is a \code{ggtree} object. The list names are
 #'   "noninteractive", "with_interactivity_data", "with_heatmap", "interactive".
@@ -25,7 +25,9 @@ create_trees <- function(ggtree_data,
                          sc0,
                          cmuts,
                          heatmap_width,
+                         heatmap_offset,
                          heatmap_lab_offset,
+                         heatmap_fill = c("FALSE" = "grey90", "TRUE" = "grey70"),
                          mut_regex = NULL,
                          colours = NULL,
                          colour_limits = NULL) {
@@ -63,7 +65,9 @@ create_trees <- function(ggtree_data,
     ggobj = tree_list[["with_interactivity_data"]],
     genotype = genotype,
     heatmap_width = heatmap_width,
-    heatmap_lab_offset = heatmap_lab_offset
+    heatmap_offset = heatmap_offset,
+    heatmap_lab_offset = heatmap_lab_offset,
+    heatmap_fill = heatmap_fill
   )
 
   tree_list$interactive <- create_interactive_ggtree(
@@ -202,6 +206,7 @@ create_noninteractive_ggtree <- function(ggtree_data,
       name = "Cluster size",
       range = c(2, 16)
     ) +
+    ggplot2::guides(shape = "none") +
     ggplot2::ggtitle(glue::glue("{Sys.Date()}, colour: {branch_col}")) +
     ggplot2::theme(legend.position = "top")
 
@@ -381,17 +386,24 @@ extract_genotype_data <- function(ggobj,
 append_heatmap <- function(ggobj,
                            genotype,
                            heatmap_width = 1,
-                           heatmap_lab_offset = 0) {
+                           heatmap_offset = 5,
+                           heatmap_lab_offset = 0,
+                           heatmap_fill = c("FALSE" = "grey90", "TRUE" = "grey70")) {
   ggtree::gheatmap(
     p = ggobj,
     data = genotype,
     width = heatmap_width,
-    offset = 0.0005,
+    offset = heatmap_offset,
     colnames_angle = -90,
     colnames_position = "top",
-    colnames_offset_y = heatmap_lab_offset,
-    legend_title = "Genotype"
-  )
+    colnames_offset_y = heatmap_lab_offset
+  ) +
+    ggplot2::scale_fill_manual(
+      values = heatmap_fill
+    ) +
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(title = "Genotype", nrow = 2)
+    )
 }
 
 #' Converts a \code{ggtree} object into a \code{ggiraph} object with interactive potential

@@ -12,7 +12,9 @@ treeview(
   output_dir = "treeview",
   output_format = c("rds", "html"),
   heatmap_width = 0.075,
-  heatmap_lab_offset = -6
+  heatmap_offset = 8,
+  heatmap_lab_offset = -6,
+  heatmap_fill = c(`FALSE` = "grey90", `TRUE` = "grey70")
 )
 }
 \arguments{
@@ -34,8 +36,14 @@ format(s) should the interactive plots be saved? For \code{rds}, a \code{ggtree}
 \code{ggplot2} object will be placed in \code{rds} files. For \code{html}, \code{htmlwidget}s
 will be placed in a \code{html} file.}
 
-\item{heatmap_width, heatmap_lab_offset}{Width and label-offset parameters for the constructed
+\item{heatmap_width, heatmap_offset}{Width relative to the tree and offset from the tree for the
 heatmap.}
+
+\item{heatmap_lab_offset}{Label-offset parameter for the constructed heatmap.}
+
+\item{heatmap_fill}{Colours for filling the interior of the heatmap (which indicates the
+presence / absence of a particular genotype). By default this is light grey for `FALSE` and
+mid-grey for `TRUE`.}
 }
 \value{
 A \code{ggtree} plot.
