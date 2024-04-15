@@ -1,3 +1,14 @@
+# tfpscanner 0.3.1
+
+- Feature: genotype TRUE/FALSE legends were squashed into 1 column on the heatmap/dendrogram figure
+- Feature: genotype TRUE/FALSE colours in the heatmaps are now light/mid grey instead of colourful
+  to reduce colour clashes with the dendrogram colour scheme
+- Feature: user can set `heatmap_offset` in `treeview()` for dictating the distance between the
+  heatmap and dendrogram
+- Feature: Colours for dendrogram branches can be defined in the `treeview()` args; by default these
+  are now a Blue-Red diverging palette with light-grey midpoint
+- Feature: Dendrogram statistic ranges are now centred on zero
+
 # tfpscanner 0.3.0 _2023-07-06_
 
 - Feature: function `create_browser_data()` was added to generate all treeview illustrations and

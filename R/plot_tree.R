@@ -94,16 +94,18 @@ create_trees <- function(ggtree_data,
 #'   object will be placed in an \code{rds} file. For \code{html}, a \code{htmlwidget} will be
 #'   placed in a \code{html} file.
 #' @param   include_date   Boolean. Should the file-paths include the current date?
-#' @inheritParams   create_trees
+#' @param   height_svg,width_svg   Scalar numeric. Height/width of the generated plots. Passed on to
+#'   `ggplot2::ggsave(..., height, width)` and `ggiraph::girafe(..., height_svg, width_svg)`.
 #'
 #' @return   A named vector containing the file paths that were generated.
 
 save_trees <- function(tree_list,
                        branch_col,
-                       n_leaves,
                        output_dir,
                        output_format = c("rds", "html"),
-                       include_date = FALSE) {
+                       include_date = FALSE,
+                       height_svg = NULL,
+                       width_svg = NULL) {
   output_format <- match.arg(output_format, several.ok = TRUE)
   required_filetypes <- c(
     "noninteractive",
@@ -127,13 +129,11 @@ save_trees <- function(tree_list,
     required_filetypes
   )
 
-  plot_height <- max(14, floor(n_leaves / 10))
-
   ggplot2::ggsave(
     tree_list[["noninteractive"]],
     filename = files[["noninteractive"]],
-    height = plot_height,
-    width = 16,
+    height = height_svg,
+    width = width_svg,
     limitsize = FALSE
   )
 
@@ -147,8 +147,8 @@ save_trees <- function(tree_list,
   if ("html" %in% output_format) {
     widget <- create_widget(
       tree_list[["interactive"]],
-      width_svg = 15,
-      height_svg = plot_height
+      width_svg = width_svg,
+      height_svg = height_svg
     )
 
     htmlwidgets::saveWidget(
