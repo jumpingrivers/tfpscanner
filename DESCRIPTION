@@ -1,13 +1,14 @@
 Package: tfpscanner
-Title: Transmission fitness polymorphism scanner 
+Title: Transmission fitness polymorphism scanner
 Version: 0.3.1
 Date: 2023-01-18
 Author: Erik Volz, Olivia Boyd
 Maintainer: Erik Volz <e.volz@imperial.ac.uk>
-Description: A pipeline for scanning a SARS-CoV-2 phylogeny for clades with outlying growth 
-  patterns and high evolutionary rates. 
+Description: A pipeline for scanning a SARS-CoV-2 phylogeny for clades
+    with outlying growth patterns and high evolutionary rates.
+License: MIT + file LICENSE
 Depends:
-  R (>= 4.1.0)
+    R (>= 4.1.0)
 Imports: 
     ape,
     dplyr,
@@ -38,9 +39,9 @@ Suggests:
     testthat (>= 3.0.0),
     withr
 Remotes: 
-  emvolz-phylodynamics/mlesky
-SystemRequirements: libopenmpi-dev
-Encoding: UTF-8
-License: MIT + file LICENSE
-RoxygenNote: 7.2.3
+    emvolz-phylodynamics/mlesky,
+    YuLab-SMU/ggtree
 Config/testthat/edition: 3
+Encoding: UTF-8
+RoxygenNote: 7.2.3
+SystemRequirements: libopenmpi-dev
