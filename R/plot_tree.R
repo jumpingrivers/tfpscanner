@@ -386,7 +386,7 @@ extract_genotype_data <- function(ggobj,
 append_heatmap <- function(ggobj,
                            genotype,
                            heatmap_width = 1,
-                           heatmap_offset = 5,
+                           heatmap_offset,
                            heatmap_lab_offset = 0,
                            heatmap_fill = c("FALSE" = "grey90", "TRUE" = "grey70")) {
   ggtree::gheatmap(

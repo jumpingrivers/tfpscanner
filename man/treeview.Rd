@@ -14,7 +14,7 @@ treeview(
   dendrogram_colours = c("#2166ac", "#738fc0", "#afbad4", "#e8e8e8", "#e0a9a4",
     "#ce6964", "#b2182b"),
   heatmap_width = 0.075,
-  heatmap_offset = 8,
+  heatmap_offset = 5e-04,
   heatmap_lab_offset = -6,
   heatmap_fill = c(`FALSE` = "grey90", `TRUE` = "grey70")
 )
